@@ -21,7 +21,7 @@ def tree_classification_precision(criterion='gini', splitter='best', max_feature
                                  min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf)
     cls.fit(X1, y1)
     pred = cls.predict(X2)
-    return 1 - ( len(filter(lambda i: y2[i] == pred[i], range(len(y2)))) / len(y2) )
+    return 1 - ( len(list(filter(lambda i: y2[i] == pred[i], range(len(y2))))) / len(y2) )
 
 
 if __name__ == '__main__':

@@ -25,17 +25,17 @@ def tree_classification_precision(criterion='gini', splitter='best', max_feature
 
 
 if __name__ == '__main__':
-    print tree_classification_precision()
-    print tree_classification_precision(criterion='entropy')
-    print tree_classification_precision(splitter='random')
-    print tree_classification_precision(criterion='entropy', splitter='random')
+    print 1 - tree_classification_precision()
+    print 1 - tree_classification_precision(criterion='entropy')
+    print 1 - tree_classification_precision(splitter='random')
+    print 1 - tree_classification_precision(criterion='entropy', splitter='random')
 
     parameters = dict(
         criterion=('categorical', ['gini', 'entropy'], 'gini'),
         splitter=('categorical', ['best', 'random'], 'best'),
         max_features=('categorical', ['None', 'auto', 'sqrt', 'log2'], 'None'),
-        min_samples_split=('integer', [2, 100], 2),
-        min_samples_leaf=('integer', [1, 100], 1)
+        min_samples_split=('integer', [2, 10], 2),
+        min_samples_leaf=('integer', [1, 10], 1)
     )
 
     opt = pysmac.SMAC_optimizer()

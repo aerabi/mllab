@@ -1,3 +1,2 @@
-scipy
 scikit-learn
 git+https://github.com/automl/pysmac.git

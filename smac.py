@@ -2,6 +2,7 @@ from __future__ import division, print_function
 
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 
 import pysmac
@@ -21,7 +22,7 @@ def tree_classification_precision(criterion='gini', splitter='best', max_feature
                                  min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf)
     cls.fit(X1, y1)
     pred = cls.predict(X2)
-    return 1 - ( len(list(filter(lambda i: y2[i] == pred[i], range(len(y2))))) / len(y2) )
+    return 1 - accuracy_score(y2, pred)
 
 
 if __name__ == '__main__':
@@ -31,11 +32,11 @@ if __name__ == '__main__':
     print(1 - tree_classification_precision(criterion='entropy', splitter='random'))
 
     parameters = dict(
-        criterion=('categorical', ['gini', 'entropy'], 'gini'),
+        criterion=('categorical', ['gini'], 'gini'),
         splitter=('categorical', ['best', 'random'], 'best'),
         max_features=('categorical', ['None', 'auto', 'sqrt', 'log2'], 'None'),
-        min_samples_split=('integer', [2, 10], 2),
-        min_samples_leaf=('integer', [1, 10], 1)
+        min_samples_split=('integer', [2, 4], 2),
+        min_samples_leaf=('integer', [1, 4], 1)
     )
 
     opt = pysmac.SMAC_optimizer()

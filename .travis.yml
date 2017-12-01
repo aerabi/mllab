@@ -8,5 +8,4 @@ install:
   - pip install -U scikit-learn
   - pip install git+https://github.com/automl/pysmac.git
 script:
-  - python smackdown.py
-  - python hyperparameter_optimizer.py
+  - python -V

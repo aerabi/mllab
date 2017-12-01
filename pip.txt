@@ -1,2 +1,6 @@
+scipy
+numpy
 scikit-learn
+matplotlib
 git+https://github.com/automl/pysmac.git
+git+https://github.com/openml/openml-python.git

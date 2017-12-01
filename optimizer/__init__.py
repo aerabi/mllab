@@ -1,9 +1,9 @@
 from __future__ import division, print_function
 
-from smackdown import SmackDown
-
 import sklearn
 from sklearn import datasets, tree
+
+from optimizer.smackdown import SmackDown
 
 
 class HyperparameterOptimizer:

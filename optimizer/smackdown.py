@@ -51,6 +51,7 @@ class SmackDown:
         return keys, values
 
     def minimize(self):
+        all_values = []
         keys, space = self.__create_configuration_space__()
         best_configuration, best_value = None, None
         for i in range(len(space)):
@@ -58,15 +59,16 @@ class SmackDown:
             for j in range(len(keys)):
                 arguments[keys[j]] = space[i][j]
             value = self.function(**arguments)
+            all_values.append(value)
             if best_value is None or value < best_value:
                 best_value = value
                 best_configuration = arguments
-        return best_value, best_configuration
+        return best_value, best_configuration, all_values
 
     def good_minimize(self, iteration=20):
         frequencies = defaultdict(int)
         for i in range(iteration):
-            value, config = self.minimize()
+            value, config, _ = self.minimize()
             frequencies[json.dumps(config)] += 1
         biggest_frequency = max(frequencies.values())
         for hashed_configuration, frequency in frequencies.items():

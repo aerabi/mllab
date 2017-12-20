@@ -1,9 +1,10 @@
 from __future__ import print_function
 
+import sklearn
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.metrics import f1_score, precision_score
+from sklearn.metrics import f1_score, precision_score, accuracy_score
 from sklearn.ensemble import RandomForestClassifier
 
 from matplotlib import pyplot as plt
@@ -25,11 +26,6 @@ class AlgorithmWorkstation:
         data_set = task.get_dataset()
         nominal_indices = data_set.get_features_by_type('nominal', [task.target_name])
         X, y = task.get_X_and_y()
-
-        # impute
-        imputer = Imputer(strategy='most_frequent')
-        imputer.fit(X)
-        X = imputer.transform(X)
 
         # encode
         # print(nominal_indices)
@@ -56,24 +52,30 @@ class AlgorithmWorkstation:
         self.y_pred = self._model_.predict(self.X_test)
         return self
 
-    def get_score(self, metric=precision_score):
-        return metric(self.y_test, self.y_pred, average='weighted')
+    def get_score(self, metric=accuracy_score):
+        return metric(self.y_test, self.y_pred)
 
 
 def main(task_ids):
     scores, scores_optimized = list(), list()
+    steps = [('imputer', Imputer()),
+             ('estimator', RandomForestClassifier())]
+    classifier = sklearn.pipeline.Pipeline(steps=steps)
+
     configuration_space = {
-        'bootstrap': [True, False],
-        'max_features': scipy.stats.uniform(loc=0.1, scale=0.8),
-        'min_samples_leaf': list(range(1, 21)),
-        'min_samples_split': list(range(2, 21)),
+        'imputer__strategy': ['mean', 'median', 'most_frequent'],
+        'estimator__bootstrap': [True, False],
+        'estimator__max_features': scipy.stats.uniform(loc=0.1, scale=0.8),
+        'estimator__min_samples_leaf': list(range(1, 21)),
+        'estimator__min_samples_split': list(range(2, 21)),
     }
+
     for task_id in task_ids:
         try:
             print('Task %d' % task_id)
-            scores.append(AlgorithmWorkstation(RandomForestClassifier()).load_openml_task(task_id).fit().get_score())
+            scores.append(AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score())
             scores_optimized.append(
-                AlgorithmWorkstation(RandomForestClassifier())
+                AlgorithmWorkstation(classifier)
                 .load_openml_task(task_id)
                 .random_search_optimize(configuration_space)
                 .get_score()
@@ -83,7 +85,10 @@ def main(task_ids):
     print(np.mean(scores))
     print(np.mean(scores_optimized))
 
-    plt.boxplot([scores, scores_optimized], labels=['Default', 'Random Search'])
+    data = [scores, scores_optimized]
+    plt.boxplot(data)
+
+    plt.xticks([1, 2], ['Default', 'Random Search'])
     plt.title('Random Forest Classifier Precision,\nwithout vs with Hyperparameter Optimization')
     plt.show()
 

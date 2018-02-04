@@ -1,8 +1,10 @@
 from __future__ import print_function
 
+import argparse
+import os
+
 import sklearn
 from sklearn.preprocessing import Imputer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import f1_score, precision_score, accuracy_score
 from sklearn.ensemble import RandomForestClassifier
@@ -12,6 +14,8 @@ from matplotlib import pyplot as plt
 import openml
 import numpy as np
 import scipy
+
+from optimizer import SmackDown
 
 
 class AlgorithmWorkstation:
@@ -56,8 +60,9 @@ class AlgorithmWorkstation:
         return metric(self.y_test, self.y_pred)
 
 
-def main(task_ids):
+def main(task_ids, save, load, calc, plot, iterations, file=None, random_forest=False):
     scores, scores_optimized = list(), list()
+    all_scores = list()
     steps = [('imputer', Imputer()),
              ('estimator', RandomForestClassifier())]
     classifier = sklearn.pipeline.Pipeline(steps=steps)
@@ -70,29 +75,75 @@ def main(task_ids):
         'estimator__min_samples_split': list(range(2, 21)),
     }
 
+    params = {
+        'imputer__strategy': ('categorical', ['mean', 'median', 'most_frequent'], 'mean'),
+        'estimator__bootstrap': ('categorical', [True, False], True),
+        'estimator__max_features': ('real', [0.1, 0.9], 0.5),
+        'estimator__min_samples_leaf': ('integer', list(range(1, 21)), 1),
+        'estimator__min_samples_split': ('integer', list(range(2, 21)), 1),
+    }
+
+    def function_to_minimize(**params):
+        classifier.set_params(**params)
+        return 1 - AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score()
+
     for task_id in task_ids:
         try:
             print('Task %d' % task_id)
-            scores.append(AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score())
-            scores_optimized.append(
-                AlgorithmWorkstation(classifier)
-                .load_openml_task(task_id)
-                .random_search_optimize(configuration_space)
-                .get_score()
-            )
+            if random_forest:
+                scores.append(AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score())
+                scores_optimized.append(
+                    AlgorithmWorkstation(classifier)
+                    .load_openml_task(task_id)
+                    .random_search_optimize(configuration_space)
+                    .get_score()
+                )
+            else:
+                smackdown = SmackDown(function_to_minimize, params, iterations)
+                _, _, negative_scores_for_task = smackdown.minimize()
+                positive_scores_for_task = [1 - score for score in negative_scores_for_task]
+                all_scores.append(positive_scores_for_task)
+                print(positive_scores_for_task)
         except Exception as e:
+            e.with_traceback()
             print(e)
-    print(np.mean(scores))
-    print(np.mean(scores_optimized))
+    if random_forest:
+        print(np.mean(scores))
+        print(np.mean(scores_optimized))
 
-    data = [scores, scores_optimized]
-    plt.boxplot(data)
+        data = [scores, scores_optimized]
+        plt.boxplot(data)
 
-    plt.xticks([1, 2], ['Default', 'Random Search'])
-    plt.title('Random Forest Classifier Precision,\nwithout vs with Hyperparameter Optimization')
-    plt.show()
+        plt.xticks([1, 2], ['Default', 'Random Search'])
+        plt.title('Random Forest Classifier Precision,\nwithout vs with Hyperparameter Optimization')
+        plt.show()
+    else:
+        plt.boxplot(all_scores)
+
+        plt.xticks([i + 1 for i in range(len(task_ids))], task_ids)
+        plt.title('All values in grid search')
+        plt.show()
 
 
 if __name__ == '__main__':
     task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
-    main(task_ids)
+    cmd_parser = argparse.ArgumentParser('workstation')
+    cmd_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=task_ids,
+                            help='OpenML.org task IDs to do the experiment on '
+                                 '(only for recalculation)')
+    cmd_parser.add_argument('-d', '--data', choices=['CALC', 'LOAD'], default='CALC',
+                            help='whether recalculate the scores for each hyperparameter '
+                                 'configuration or load them from file')
+    cmd_parser.add_argument('-s', '--save', help='save the data after recalculation')
+    cmd_parser.add_argument('-f', '--file', help='file to save the data to or load the data from')
+    cmd_parser.add_argument('--random-forest', help='whether to use random forest for '
+                                                    'hyperparameter optimization; save and load '
+                                                    'unavailable for this option')
+    cmd_parser.add_argument('-i', '--iterations', type=int, default=100, help='number of configurations')
+    cmd_parser.add_argument('-p', '--plot', help='whether to plot the result')
+
+    args = cmd_parser.parse_args()
+    load = args.data == 'LOAD'
+    calc = not load
+    main(args.task_ids, load=load, calc=calc, save=args.save, plot=args.plot,
+         iterations=args.iterations, file=args.file, random_forest=args.random_forest)

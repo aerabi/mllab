@@ -2,11 +2,12 @@ from __future__ import print_function
 
 import argparse
 import os
+import json
 
 import sklearn
 from sklearn.preprocessing import Imputer
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.metrics import f1_score, precision_score, accuracy_score
+from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
 
 from matplotlib import pyplot as plt
@@ -57,12 +58,15 @@ class AlgorithmWorkstation:
         return self
 
     def get_score(self, metric=accuracy_score):
-        return metric(self.y_test, self.y_pred)
+        try:
+            return metric(self.y_test, self.y_pred)
+        except ValueError:
+            return metric(self.y_test, self.y_pred, average='micro')
 
 
-def main(task_ids, save, load, calc, plot, iterations, file=None, random_forest=False):
+def calc(task_ids, iterations, save=False, random_forest=False):
     scores, scores_optimized = list(), list()
-    all_scores = list()
+    all_scores, all_additionals = list(), dict()
     steps = [('imputer', Imputer()),
              ('estimator', RandomForestClassifier())]
     classifier = sklearn.pipeline.Pipeline(steps=steps)
@@ -85,7 +89,12 @@ def main(task_ids, save, load, calc, plot, iterations, file=None, random_forest=
 
     def function_to_minimize(**params):
         classifier.set_params(**params)
-        return 1 - AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score()
+        trained = AlgorithmWorkstation(classifier).load_openml_task(task_id).fit()
+        additional_data = {'params': params, 'scores': {}}
+        score_metrics = [f1_score, precision_score, accuracy_score, recall_score]
+        for metric in score_metrics:
+            additional_data['scores'][metric.__name__] = trained.get_score(metric)
+        return 1 - trained.get_score(), additional_data
 
     for task_id in task_ids:
         try:
@@ -94,19 +103,29 @@ def main(task_ids, save, load, calc, plot, iterations, file=None, random_forest=
                 scores.append(AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score())
                 scores_optimized.append(
                     AlgorithmWorkstation(classifier)
-                    .load_openml_task(task_id)
-                    .random_search_optimize(configuration_space)
-                    .get_score()
+                        .load_openml_task(task_id)
+                        .random_search_optimize(configuration_space)
+                        .get_score()
                 )
             else:
                 smackdown = SmackDown(function_to_minimize, params, iterations)
-                _, _, negative_scores_for_task = smackdown.minimize()
+                _, _, negative_scores_for_task, additionals = smackdown.minimize()
                 positive_scores_for_task = [1 - score for score in negative_scores_for_task]
                 all_scores.append(positive_scores_for_task)
+                all_additionals[task_id] = additionals
                 print(positive_scores_for_task)
         except Exception as e:
             e.with_traceback()
             print(e)
+
+    if save:
+        with open(save, 'w') as output_file:
+            json.dump(all_additionals, output_file)
+
+    return scores, scores_optimized, all_scores
+
+
+def plot(scores, scores_optimized, all_scores, random_forest=False):
     if random_forest:
         print(np.mean(scores))
         print(np.mean(scores_optimized))
@@ -125,25 +144,37 @@ def main(task_ids, save, load, calc, plot, iterations, file=None, random_forest=
         plt.show()
 
 
+def main(args):
+    if args.option == 'calc':
+        scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
+                                                    args.save, args.random_forest)
+        if args.plot:
+            plot(scores, scores_optimized, all_scores, args.random_forest)
+
+    elif args.option == 'load':
+        # TODO load
+        pass
+
 if __name__ == '__main__':
     task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
     cmd_parser = argparse.ArgumentParser('workstation')
-    cmd_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=task_ids,
-                            help='OpenML.org task IDs to do the experiment on '
-                                 '(only for recalculation)')
-    cmd_parser.add_argument('-d', '--data', choices=['CALC', 'LOAD'], default='CALC',
-                            help='whether recalculate the scores for each hyperparameter '
-                                 'configuration or load them from file')
-    cmd_parser.add_argument('-s', '--save', help='save the data after recalculation')
-    cmd_parser.add_argument('-f', '--file', help='file to save the data to or load the data from')
-    cmd_parser.add_argument('--random-forest', help='whether to use random forest for '
-                                                    'hyperparameter optimization; save and load '
-                                                    'unavailable for this option')
-    cmd_parser.add_argument('-i', '--iterations', type=int, default=100, help='number of configurations')
-    cmd_parser.add_argument('-p', '--plot', help='whether to plot the result')
+    subparsers = cmd_parser.add_subparsers(dest='option')
+    calc_parser = subparsers.add_parser('calc')
+    calc_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=task_ids,
+                             help='OpenML.org task IDs to do the experiment on '
+                                  '(only for recalculation)')
+    calc_parser.add_argument('-s', '--save',
+                             help='file to save the data after recalculation')
+    calc_parser.add_argument('--random-forest', help='whether to use random forest for '
+                                                     'hyperparameter optimization; save '
+                                                     'unavailable for this option')
+    calc_parser.add_argument('-i', '--iterations', type=int, default=100,
+                             help='number of configurations')
+    calc_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
+    load_parser = subparsers.add_parser('load')
+    load_parser.add_argument('file', type=argparse.FileType(),
+                             help='file to load the hyperparameter configurations and '
+                                  'their scores from')
+    load_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
 
-    args = cmd_parser.parse_args()
-    load = args.data == 'LOAD'
-    calc = not load
-    main(args.task_ids, load=load, calc=calc, save=args.save, plot=args.plot,
-         iterations=args.iterations, file=args.file, random_forest=args.random_forest)
+    main(cmd_parser.parse_args())

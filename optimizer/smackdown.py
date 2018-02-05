@@ -52,18 +52,20 @@ class SmackDown:
 
     def minimize(self):
         all_values = []
+        additionals = []
         keys, space = self.__create_configuration_space__()
         best_configuration, best_value = None, None
         for i in range(len(space)):
             arguments = {}
             for j in range(len(keys)):
                 arguments[keys[j]] = space[i][j]
-            value = self.function(**arguments)
+            value, additional = self.function(**arguments)
             all_values.append(value)
+            additionals.append(additional)
             if best_value is None or value < best_value:
                 best_value = value
                 best_configuration = arguments
-        return best_value, best_configuration, all_values
+        return best_value, best_configuration, all_values, additionals
 
     def good_minimize(self, iteration=20):
         frequencies = defaultdict(int)

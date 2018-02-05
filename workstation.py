@@ -125,7 +125,7 @@ def calc(task_ids, iterations, save=False, random_forest=False):
     return scores, scores_optimized, all_scores
 
 
-def plot(scores, scores_optimized, all_scores, random_forest=False):
+def plot(scores, scores_optimized, all_scores, task_ids, random_forest=False):
     if random_forest:
         print(np.mean(scores))
         print(np.mean(scores_optimized))
@@ -149,11 +149,18 @@ def main(args):
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
                                                     args.save, args.random_forest)
         if args.plot:
-            plot(scores, scores_optimized, all_scores, args.random_forest)
+            plot(scores, scores_optimized, all_scores, args.task_ids, args.random_forest)
 
     elif args.option == 'load':
-        # TODO load
-        pass
+        data = json.load(args.file)
+        keys = [int(key) for key in data.keys()]
+        keys.sort()
+        keys.reverse()
+        task_ids = [str(key) for key in keys]
+        all_scores = [[datum['scores']['f1_score'] for datum in data[task_id]] for task_id in task_ids]
+
+        if args.plot:
+            plot(None, None, all_scores, task_ids, False)
 
 if __name__ == '__main__':
     task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]

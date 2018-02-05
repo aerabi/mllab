@@ -14,6 +14,8 @@ from matplotlib import pyplot as plt
 import openml
 import numpy as np
 import scipy
+from scipy.stats import gaussian_kde
+from scipy.stats.distributions import norm
 
 from optimizer import SmackDown
 
@@ -145,6 +147,18 @@ def plot(scores, scores_optimized, all_scores, task_ids, metric='accuracy', rand
         plt.show()
 
 
+def plot_gaussian(kernel, a, b, hyperparameter, sample_percentage, metric):
+    x_grid = np.linspace(a, b, 1000)
+    pdf = kernel.evaluate(x_grid)
+    plt.plot(x_grid, pdf, color='blue', alpha=0.5, lw=3)
+    plt.xlim(a, b)
+    plt.title('Gaussian Distribution\nbased on %d%% best %s scores' %
+              (sample_percentage, metric))
+    plt.xlabel(hyperparameter)
+    plt.ylabel('distribution density')
+    plt.show()
+
+
 def main(args):
     if args.option == 'calc':
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
@@ -154,22 +168,38 @@ def main(args):
 
     elif args.option == 'load':
         data = json.load(args.file)
-        keys = [int(key) for key in data.keys()]
-        keys.sort()
-        keys.reverse()
-        task_ids = [str(key) for key in keys]
-        all_scores = [[datum['scores']['%s_score' % args.metric.lower()]
-                       for datum in data[task_id]] for task_id in task_ids]
+        metric = '%s_score' % args.metric.lower()
 
         if args.plot:
+            keys = [int(key) for key in data.keys()]
+            keys.sort()
+            keys.reverse()
+            task_ids = [str(key) for key in keys]
+            all_scores = [[datum['scores'][metric]
+                           for datum in data[task_id]] for task_id in task_ids]
             plot(None, None, all_scores, task_ids, args.metric, False)
 
+        if args.sample > 0.0:
+            all_samples = []
+            for task_id, task_data in data.items():
+                n_sample = int(args.sample * len(task_data))
+                task_data.sort(key=lambda x: -x['scores'][metric])
+                selected = task_data[:n_sample]
+                if args.hyperparameter not in selected[0]['params'].keys():
+                    print('invalid hyperparameter, please select from among: %s'
+                          % ', '.join(selected[0]['params'].keys()))
+                    return
+                all_samples += [item['params'][args.hyperparameter] for item in selected]
+            kde = gaussian_kde(all_samples)
+            plot_gaussian(kde, float(args.bounds[0]), float(args.bounds[1]), args.hyperparameter,
+                          int(args.sample * 100), args.metric)
+
 if __name__ == '__main__':
-    task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
+    default_task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
     cmd_parser = argparse.ArgumentParser('workstation')
     subparsers = cmd_parser.add_subparsers(dest='option')
     calc_parser = subparsers.add_parser('calc')
-    calc_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=task_ids,
+    calc_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=default_task_ids,
                              help='OpenML.org task IDs to do the experiment on '
                                   '(only for recalculation)')
     calc_parser.add_argument('-s', '--save',
@@ -187,5 +217,11 @@ if __name__ == '__main__':
     load_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
     load_parser.add_argument('-m', '--metric', choices=['F1', 'PRECISION', 'RECALL', 'ACCURACY'],
                              default='ACCURACY', help='score metric')
+    load_parser.add_argument('-s', '--sample', type=float, default=0.0,
+                             help='sample percentage of data from each configuration space')
+    load_parser.add_argument('-H', '--hyperparameter', type=str, default='estimator__max_features',
+                             help='name of hyperparameter to sample Gaussian distribution for')
+    load_parser.add_argument('-b', '--bounds', nargs=2, default=[0.0, 1.0],
+                             help='hyperparameter values lower and upper bounds')
 
     main(cmd_parser.parse_args())

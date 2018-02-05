@@ -143,6 +143,7 @@ def plot(scores, scores_optimized, all_scores, task_ids, metric='accuracy', rand
         plt.xticks([i + 1 for i in range(len(task_ids))], task_ids)
         plt.title('Random Forest Classifier %s,\nall values in grid search' % metric.capitalize())
         plt.xlabel('Datasets')
+        plt.xticks(rotation=90)
         plt.ylabel(metric.capitalize())
         plt.show()
 

@@ -1,12 +1,11 @@
 from __future__ import print_function
 
 import argparse
-import os
 import json
 
 import sklearn
 from sklearn.preprocessing import Imputer
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
 
@@ -125,7 +124,7 @@ def calc(task_ids, iterations, save=False, random_forest=False):
     return scores, scores_optimized, all_scores
 
 
-def plot(scores, scores_optimized, all_scores, task_ids, random_forest=False):
+def plot(scores, scores_optimized, all_scores, task_ids, metric='accuracy', random_forest=False):
     if random_forest:
         print(np.mean(scores))
         print(np.mean(scores_optimized))
@@ -140,7 +139,9 @@ def plot(scores, scores_optimized, all_scores, task_ids, random_forest=False):
         plt.boxplot(all_scores)
 
         plt.xticks([i + 1 for i in range(len(task_ids))], task_ids)
-        plt.title('All values in grid search')
+        plt.title('Random Forest Classifier %s,\nall values in grid search' % metric.capitalize())
+        plt.xlabel('Datasets')
+        plt.ylabel(metric.capitalize())
         plt.show()
 
 
@@ -149,7 +150,7 @@ def main(args):
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
                                                     args.save, args.random_forest)
         if args.plot:
-            plot(scores, scores_optimized, all_scores, args.task_ids, args.random_forest)
+            plot(scores, scores_optimized, all_scores, args.task_ids, 'accuracy', args.random_forest)
 
     elif args.option == 'load':
         data = json.load(args.file)
@@ -157,10 +158,11 @@ def main(args):
         keys.sort()
         keys.reverse()
         task_ids = [str(key) for key in keys]
-        all_scores = [[datum['scores']['f1_score'] for datum in data[task_id]] for task_id in task_ids]
+        all_scores = [[datum['scores']['%s_score' % args.metric.lower()]
+                       for datum in data[task_id]] for task_id in task_ids]
 
         if args.plot:
-            plot(None, None, all_scores, task_ids, False)
+            plot(None, None, all_scores, task_ids, args.metric, False)
 
 if __name__ == '__main__':
     task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
@@ -183,5 +185,7 @@ if __name__ == '__main__':
                              help='file to load the hyperparameter configurations and '
                                   'their scores from')
     load_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
+    load_parser.add_argument('-m', '--metric', choices=['F1', 'PRECISION', 'RECALL', 'ACCURACY'],
+                             default='ACCURACY', help='score metric')
 
     main(cmd_parser.parse_args())

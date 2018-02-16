@@ -84,8 +84,8 @@ def calc(task_ids, iterations, save=False, random_forest=False):
         'imputer__strategy': ('categorical', ['mean', 'median', 'most_frequent'], 'mean'),
         'estimator__bootstrap': ('categorical', [True, False], True),
         'estimator__max_features': ('real', [0.1, 0.9], 0.5),
-        'estimator__min_samples_leaf': ('integer', list(range(1, 21)), 1),
-        'estimator__min_samples_split': ('integer', list(range(2, 21)), 1),
+        'estimator__min_samples_leaf': ('integer', [1, 20], 1),
+        'estimator__min_samples_split': ('integer', [2, 20], 1),
     }
 
     def function_to_minimize(**params):

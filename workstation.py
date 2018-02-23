@@ -2,6 +2,8 @@ from __future__ import print_function
 
 import argparse
 import json
+import pickle
+import traceback
 
 import sklearn
 from sklearn.preprocessing import Imputer
@@ -15,9 +17,9 @@ import openml
 import numpy as np
 import scipy
 from scipy.stats import gaussian_kde
-from scipy.stats.distributions import norm
 
 from optimizer import SmackDown
+from wrappers import GaussianKDEWrapper
 
 
 class AlgorithmWorkstation:
@@ -65,7 +67,7 @@ class AlgorithmWorkstation:
             return metric(self.y_test, self.y_pred, average='micro')
 
 
-def calc(task_ids, iterations, save=False, random_forest=False):
+def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None):
     scores, scores_optimized = list(), list()
     all_scores, all_additionals = list(), dict()
     steps = [('imputer', Imputer()),
@@ -79,6 +81,9 @@ def calc(task_ids, iterations, save=False, random_forest=False):
         'estimator__min_samples_leaf': list(range(1, 21)),
         'estimator__min_samples_split': list(range(2, 21)),
     }
+
+    for key, val in input_configuration_space.items():
+        configuration_space[key] = val
 
     params = {
         'imputer__strategy': ('categorical', ['mean', 'median', 'most_frequent'], 'mean'),
@@ -115,9 +120,8 @@ def calc(task_ids, iterations, save=False, random_forest=False):
                 all_scores.append(positive_scores_for_task)
                 all_additionals[task_id] = additionals
                 print(positive_scores_for_task)
-        except Exception as e:
-            e.with_traceback()
-            print(e)
+        except Exception:
+            print(traceback.format_exc())
 
     if save:
         with open(save, 'w') as output_file:
@@ -162,8 +166,15 @@ def plot_gaussian(kernel, a, b, hyperparameter, sample_percentage, metric):
 
 def main(args):
     if args.option == 'calc':
+        configuration_space = {}
+        print(args.configuration)
+        for options in args.configuration:
+            with open(options[1], 'rb') as input_file:
+                kdew = GaussianKDEWrapper(pickle.load(input_file), float(options[2]),
+                                          float(options[3]), eval(options[4]))
+                configuration_space[options[0]] = kdew
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
-                                                    args.save, args.random_forest)
+                                                    args.save, args.random_forest, configuration_space)
         if args.plot:
             plot(scores, scores_optimized, all_scores, args.task_ids, 'accuracy', args.random_forest)
 
@@ -194,6 +205,9 @@ def main(args):
             kde = gaussian_kde(all_samples)
             plot_gaussian(kde, float(args.bounds[0]), float(args.bounds[1]), args.hyperparameter,
                           int(args.sample * 100), args.metric)
+            if args.save_sample:
+                with open(args.save_sample, 'wb') as output:
+                    pickle.dump(kde, output, pickle.HIGHEST_PROTOCOL)
 
 if __name__ == '__main__':
     default_task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
@@ -205,12 +219,16 @@ if __name__ == '__main__':
                                   '(only for recalculation)')
     calc_parser.add_argument('-s', '--save',
                              help='file to save the data after recalculation')
-    calc_parser.add_argument('--random-forest', help='whether to use random forest for '
-                                                     'hyperparameter optimization; save '
-                                                     'unavailable for this option')
+    calc_parser.add_argument('--random-forest', action='store_true',
+                             help='whether to use random forest for hyperparameter '
+                                  'optimization; save unavailable for this option')
     calc_parser.add_argument('-i', '--iterations', type=int, default=100,
                              help='number of configurations')
     calc_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
+    calc_parser.add_argument('-c', '--configuration', action='append', nargs=5,
+                             help='load statistical distribution for a specific hyperparameter '
+                                  'from file (random forest)',
+                             metavar=('HYPERPARAMETER', 'FILE', 'LOWER_BOUND', 'UPPER_BOUND', 'ROUND'))
     load_parser = subparsers.add_parser('load')
     load_parser.add_argument('file', type=argparse.FileType(),
                              help='file to load the hyperparameter configurations and '
@@ -224,5 +242,6 @@ if __name__ == '__main__':
                              help='name of hyperparameter to sample Gaussian distribution for')
     load_parser.add_argument('-b', '--bounds', nargs=2, default=[0.0, 1.0],
                              help='hyperparameter values lower and upper bounds')
+    load_parser.add_argument('-S', '--save-sample', help='file to save the Gaussian KDE')
 
     main(cmd_parser.parse_args())

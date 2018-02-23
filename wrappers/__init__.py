@@ -11,11 +11,12 @@ class GaussianKDEWrapper(object):
         lower_point = self.cdf(self.lower_bound)
         upper_point = self.cdf(self.upper_bound)
         self.uniform = uniform(lower_point, upper_point - lower_point)
+        self.rnd = rnd
 
     def cdf(self, point):
         return self.kde.integrate_box_1d(-np.inf, point)
 
-    def __get_sample__(self):
+    def __get_sample_old__(self):
         a = self.lower_bound
         b = self.upper_bound
         m = (a + b) / 2
@@ -35,7 +36,13 @@ class GaussianKDEWrapper(object):
         sample = m + (np.random.rand() * self.epsilon) - self.epsilon / 2
         return min(max(self.lower_bound, sample), self.upper_bound)
 
-    def rvs(self, size=None):
+    def __get_sample__(self):
+        while True:
+            sample = self.kde.resample()
+            if self.lower_bound <= sample <= self.upper_bound:
+                return sample
+
+    def rvs(self, size=None, random_state=None):
         if size is None:
             return self.rnd(self.__get_sample__())
         if size <= 0:

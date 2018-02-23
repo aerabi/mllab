@@ -3,7 +3,7 @@ from scipy.stats import uniform
 
 
 class GaussianKDEWrapper(object):
-    def __init__(self, kde, lower_bound, upper_bound, epsilon=0.001, rnd=float):
+    def __init__(self, kde, lower_bound, upper_bound, rnd=float, epsilon=0.001):
         self.kde = kde
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
@@ -38,7 +38,7 @@ class GaussianKDEWrapper(object):
 
     def __get_sample__(self):
         while True:
-            sample = self.kde.resample()
+            sample = self.kde.resample(size=1)[0][0]
             if self.lower_bound <= sample <= self.upper_bound:
                 return sample
 
@@ -47,4 +47,5 @@ class GaussianKDEWrapper(object):
             return self.rnd(self.__get_sample__())
         if size <= 0:
             return np.array([])
-        return np.append(self.rvs(size=size-1), self.rnd(self.__get_sample__()))
+        sample = self.rnd(self.__get_sample__())
+        return np.append(self.rvs(size=size-1), sample)

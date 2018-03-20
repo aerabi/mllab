@@ -19,7 +19,8 @@ import scipy
 from scipy.stats import gaussian_kde
 
 from optimizer import SmackDown
-from wrappers import GaussianKDEWrapper
+from optimizer.raw import Raw
+from wrappers import GaussianKDEWrapper, CategoricalDistribution
 
 
 class AlgorithmWorkstation:
@@ -67,7 +68,7 @@ class AlgorithmWorkstation:
             return metric(self.y_test, self.y_pred, average='micro')
 
 
-def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None):
+def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None, raw=False):
     scores, scores_optimized = list(), list()
     all_scores, all_additionals = list(), dict()
     steps = [('imputer', Imputer()),
@@ -106,6 +107,7 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
         try:
             print('Task %d' % task_id)
             if random_forest:
+                # using random forest classifier
                 scores.append(AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score())
                 scores_optimized.append(
                     AlgorithmWorkstation(classifier)
@@ -113,6 +115,25 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
                         .random_search_optimize(configuration_space)
                         .get_score()
                 )
+            elif raw:
+                # using random sampling
+                print('using WWE Raw', end=' ')
+                raw = Raw()
+                raw.add('imputer__strategy', CategoricalDistribution(['mean', 'median', 'most_frequent']))
+                raw.add('estimator__bootstrap', CategoricalDistribution([True, False]))
+                raw.add('estimator__max_features', scipy.stats.uniform(loc=0.1, scale=0.8))
+                raw.add('estimator__min_samples_leaf', CategoricalDistribution(list(range(1, 21))))
+                raw.add('estimator__min_samples_split', CategoricalDistribution(list(range(2, 21))))
+                scores = []
+                additionals = []
+                for i in range(iterations):
+                    hyperparameters = raw.sample()
+                    negative_score, additional = function_to_minimize(**hyperparameters)
+                    scores.append(1 - negative_score)
+                    additionals.append(additional)
+                all_scores.append(scores)
+                all_additionals[task_id] = additionals
+                print('max score:', max(scores))
             else:
                 smackdown = SmackDown(function_to_minimize, params, iterations)
                 _, _, negative_scores_for_task, additionals = smackdown.minimize()
@@ -174,7 +195,7 @@ def main(args):
                                               float(options[3]), eval(options[4]))
                     configuration_space[options[0]] = kdew
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
-                                                    args.save, args.random_forest, configuration_space)
+                                                    args.save, args.random_forest, configuration_space, args.raw)
         if args.plot:
             plot(scores, scores_optimized, all_scores, args.task_ids, 'accuracy', args.random_forest)
 
@@ -197,14 +218,18 @@ def main(args):
                 n_sample = int(args.sample * len(task_data))
                 task_data.sort(key=lambda x: -x['scores'][metric])
                 selected = task_data[:n_sample]
-                if args.hyperparameter not in selected[0]['params'].keys():
+                if any(hp not in selected[0]['params'].keys() for hp in args.hyperparameter):
                     print('invalid hyperparameter, please select from among: %s'
                           % ', '.join(selected[0]['params'].keys()))
                     return
-                all_samples += [item['params'][args.hyperparameter] for item in selected]
-            kde = gaussian_kde(all_samples)
-            plot_gaussian(kde, float(args.bounds[0]), float(args.bounds[1]), args.hyperparameter,
-                          int(args.sample * 100), args.metric)
+                all_samples += [[item['params'][hp] for hp in args.hyperparameter] for item in selected]
+            all_samples_np = np.array(all_samples)
+            if all_samples_np.shape[1] == 1:
+                kde = gaussian_kde(all_samples_np.flatten())
+                plot_gaussian(kde, float(args.bounds[0]), float(args.bounds[1]), args.hyperparameter,
+                              int(args.sample * 100), args.metric)
+            else:
+                kde = gaussian_kde(all_samples_np.T)
             if args.save_sample:
                 with open(args.save_sample, 'wb') as output:
                     pickle.dump(kde, output, pickle.HIGHEST_PROTOCOL)
@@ -223,6 +248,8 @@ if __name__ == '__main__':
     calc_parser.add_argument('--random-forest', action='store_true',
                              help='whether to use random forest for hyperparameter '
                                   'optimization; save unavailable for this option')
+    calc_parser.add_argument('-r', '--raw', action='store_true',
+                             help='simple random sampling with save support')
     calc_parser.add_argument('-i', '--iterations', type=int, default=100,
                              help='number of configurations, default = 100')
     calc_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
@@ -239,8 +266,8 @@ if __name__ == '__main__':
                              default='ACCURACY', help='score metric')
     load_parser.add_argument('-s', '--sample', type=float, default=0.0,
                              help='sample percentage of data from each configuration space')
-    load_parser.add_argument('-H', '--hyperparameter', type=str, default='estimator__max_features',
-                             help='name of hyperparameter to sample Gaussian distribution for')
+    load_parser.add_argument('-H', '--hyperparameter', type=str, nargs='+', default=['estimator__max_features'],
+                             help='name(s) of hyperparameter(s) to sample Gaussian distribution for')
     load_parser.add_argument('-b', '--bounds', nargs=2, default=[0.0, 1.0],
                              help='hyperparameter values lower and upper bounds')
     load_parser.add_argument('-S', '--save-sample', help='file to save the Gaussian KDE')

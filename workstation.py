@@ -215,15 +215,16 @@ if __name__ == '__main__':
     subparsers = cmd_parser.add_subparsers(dest='option')
     calc_parser = subparsers.add_parser('calc')
     calc_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=default_task_ids,
-                             help='OpenML.org task IDs to do the experiment on '
-                                  '(only for recalculation)')
+                             help='OpenML.org task IDs to do the experiment on, '
+                                  'default is a set 10 small datasets')
     calc_parser.add_argument('-s', '--save',
-                             help='file to save the data after recalculation')
+                             help='file to save the huperparameter configuration spaces '
+                                  'together with evaluation scores for each configuration')
     calc_parser.add_argument('--random-forest', action='store_true',
                              help='whether to use random forest for hyperparameter '
                                   'optimization; save unavailable for this option')
     calc_parser.add_argument('-i', '--iterations', type=int, default=100,
-                             help='number of configurations')
+                             help='number of configurations, default = 100')
     calc_parser.add_argument('-p', '--plot', action='store_true', help='whether to plot the result')
     calc_parser.add_argument('-c', '--configuration', action='append', nargs=5,
                              help='load statistical distribution for a specific hyperparameter '

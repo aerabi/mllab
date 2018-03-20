@@ -49,3 +49,15 @@ class GaussianKDEWrapper(object):
             return np.array([])
         sample = self.rnd(self.__get_sample__())
         return np.append(self.rvs(size=size-1), sample)
+
+
+class CategoricalDistribution:
+    def __init__(self, categories):
+        self.categories = categories
+
+    def rvs(self, size=None, random_state=None):
+        if size is None:
+            return self.categories[np.random.randint(len(self.categories))]
+        if size <= 0:
+            return np.array([])
+        return np.append(self.rvs(size=size-1), self.rvs())

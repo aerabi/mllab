@@ -19,5 +19,8 @@ $ python3 workstation.py load it1000.json -s 0.2 -H estimator__max_features -b 0
 
 And afterwards use the learned distributions to sample in the random search.
 ```bash
-$ python3 workstation.py calc --random-forest -i 20 -p -c estimator__min_samples_leaf min_sample_leaf.kde 1 20 "lambda x: int(round(x))" -c estimator__min_samples_split min_sample_split.kde 2 20 "lambda x: int(round(x))" -c estimator__bootstrap bootstrap.kde 0 1 "lambda x: bool(int(round(x)))"
+$ python3 workstation.py calc --random-forest -i 20 -p \
+    -c estimator__min_samples_leaf min_sample_leaf.kde 1 20 "lambda x: int(round(x))" \
+    -c estimator__min_samples_split min_sample_split.kde 2 20 "lambda x: int(round(x))" \
+    -c estimator__bootstrap bootstrap.kde 0 1 "lambda x: bool(int(round(x)))"
 ```

@@ -75,25 +75,6 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
              ('estimator', RandomForestClassifier())]
     classifier = sklearn.pipeline.Pipeline(steps=steps)
 
-    configuration_space = {
-        'imputer__strategy': ['mean', 'median', 'most_frequent'],
-        'estimator__bootstrap': [True, False],
-        'estimator__max_features': scipy.stats.uniform(loc=0.1, scale=0.8),
-        'estimator__min_samples_leaf': list(range(1, 21)),
-        'estimator__min_samples_split': list(range(2, 21)),
-    }
-
-    for key, val in input_configuration_space.items():
-        configuration_space[key] = val
-
-    params = {
-        'imputer__strategy': ('categorical', ['mean', 'median', 'most_frequent'], 'mean'),
-        'estimator__bootstrap': ('categorical', [True, False], True),
-        'estimator__max_features': ('real', [0.1, 0.9], 0.5),
-        'estimator__min_samples_leaf': ('integer', [1, 20], 1),
-        'estimator__min_samples_split': ('integer', [2, 20], 1),
-    }
-
     def function_to_minimize(**params):
         classifier.set_params(**params)
         trained = AlgorithmWorkstation(classifier).load_openml_task(task_id).fit()
@@ -108,6 +89,17 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
             print('Task %d' % task_id)
             if random_forest:
                 # using random forest classifier
+                configuration_space = {
+                    'imputer__strategy': ['mean', 'median', 'most_frequent'],
+                    'estimator__bootstrap': [True, False],
+                    'estimator__max_features': scipy.stats.uniform(loc=0.1, scale=0.8),
+                    'estimator__min_samples_leaf': list(range(1, 21)),
+                    'estimator__min_samples_split': list(range(2, 21)),
+                }
+
+                for key, val in input_configuration_space.items():
+                    configuration_space[key] = val
+
                 scores.append(AlgorithmWorkstation(classifier).load_openml_task(task_id).fit().get_score())
                 scores_optimized.append(
                     AlgorithmWorkstation(classifier)
@@ -135,6 +127,14 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
                 all_additionals[task_id] = additionals
                 print('max score:', max(scores))
             else:
+                params = {
+                    'imputer__strategy': ('categorical', ['mean', 'median', 'most_frequent'], 'mean'),
+                    'estimator__bootstrap': ('categorical', [True, False], True),
+                    'estimator__max_features': ('real', [0.1, 0.9], 0.5),
+                    'estimator__min_samples_leaf': ('integer', [1, 20], 1),
+                    'estimator__min_samples_split': ('integer', [2, 20], 1),
+                }
+
                 smackdown = SmackDown(function_to_minimize, params, iterations)
                 _, _, negative_scores_for_task, additionals = smackdown.minimize()
                 positive_scores_for_task = [1 - score for score in negative_scores_for_task]

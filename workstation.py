@@ -167,12 +167,12 @@ def plot_gaussian(kernel, a, b, hyperparameter, sample_percentage, metric):
 def main(args):
     if args.option == 'calc':
         configuration_space = {}
-        print(args.configuration)
-        for options in args.configuration:
-            with open(options[1], 'rb') as input_file:
-                kdew = GaussianKDEWrapper(pickle.load(input_file), float(options[2]),
-                                          float(options[3]), eval(options[4]))
-                configuration_space[options[0]] = kdew
+        if args.configuration is not None:
+            for options in args.configuration:
+                with open(options[1], 'rb') as input_file:
+                    kdew = GaussianKDEWrapper(pickle.load(input_file), float(options[2]),
+                                              float(options[3]), eval(options[4]))
+                    configuration_space[options[0]] = kdew
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
                                                     args.save, args.random_forest, configuration_space)
         if args.plot:

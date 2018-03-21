@@ -133,6 +133,7 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
                 all_scores.append(scores)
                 all_additionals[task_id] = additionals
                 print('max score:', max(scores))
+                scores_optimized.append(max(scores))
             else:
                 params = {
                     'imputer__strategy': ('categorical', ['mean', 'median', 'most_frequent'], 'mean'),
@@ -206,6 +207,8 @@ def main(args):
                     configuration_space[options[0]] = (pickle.load(input_file), eval(options[-1]))
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations, args.save, args.random_forest,
                                                     configuration_space, args.raw)
+        if len(scores_optimized) > 0:
+            print('mean scores:', sum(scores_optimized) / len(scores_optimized))
         if args.plot:
             plot(scores, scores_optimized, all_scores, args.task_ids, 'accuracy', args.random_forest)
 

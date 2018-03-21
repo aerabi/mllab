@@ -26,3 +26,18 @@ $ python3 workstation.py calc --random-forest -i 20 -p \
     -c estimator__max_features max_features.kde 0.1 0.9 "lambda x: x" \
     -c estimator__bootstrap bootstrap.kde 0 1 "lambda x: bool(int(round(x)))"
 ```
+
+## Multivariate KDE
+To generate multivariate KDE file, do as follows:
+```bash
+$ python3 workstation.py load it1000.json -s 0.1 -H estimator__bootstrap estimator__max_features estimator__min_samples_leaf estimator__min_samples_split \
+    -S all1000.kde
+```
+
+Then it is possible to use the generated mutlivariate KDE as an
+input for the random search method RAW:
+```bash
+$ python3 workstation.py calc --raw -i 100 -C \
+    "estimator__bootstrap|estimator__max_features|estimator__min_samples_leaf|estimator__min_samples_split" \
+    all1000.kde "lambda *xs : xs[0] > 0.5, x[1], int(round(x[2])), int(round(x[3]))"
+```

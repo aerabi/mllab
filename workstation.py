@@ -116,6 +116,13 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
                 raw.add('estimator__max_features', scipy.stats.uniform(loc=0.1, scale=0.8))
                 raw.add('estimator__min_samples_leaf', CategoricalDistribution(list(range(1, 21))))
                 raw.add('estimator__min_samples_split', CategoricalDistribution(list(range(2, 21))))
+
+                for key, val in input_configuration_space.items():
+                    if '|' in key:
+                        raw.add_multi(key.split('|'), val[0], val[1])
+                    else:
+                        raw.add(key, val)
+
                 scores = []
                 additionals = []
                 for i in range(iterations):
@@ -194,8 +201,11 @@ def main(args):
                     kdew = GaussianKDEWrapper(pickle.load(input_file), float(options[2]),
                                               float(options[3]), eval(options[4]))
                     configuration_space[options[0]] = kdew
-        scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations,
-                                                    args.save, args.random_forest, configuration_space, args.raw)
+            for options in args.configuration_multi:
+                with open(options[1], 'rb') as input_file:
+                    configuration_space[options[0]] = (pickle.load(input_file), eval(options[-1]))
+        scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations, args.save, args.random_forest,
+                                                    configuration_space, args.raw)
         if args.plot:
             plot(scores, scores_optimized, all_scores, args.task_ids, 'accuracy', args.random_forest)
 
@@ -257,6 +267,10 @@ if __name__ == '__main__':
                              help='load statistical distribution for a specific hyperparameter '
                                   'from file (random forest)',
                              metavar=('HYPERPARAMETER', 'FILE', 'LOWER_BOUND', 'UPPER_BOUND', 'ROUND'))
+    calc_parser.add_argument('-C', '--configuration-multi', action='append', nargs=3,
+                             help='load multivariate statistical distribution for multiple hyperparameters '
+                                  'input as a single string, delimited by horizontal line "|"',
+                             metavar=('HYPERPARAMETERS', 'FILE', 'OUTPUT_FILTER'))
     load_parser = subparsers.add_parser('load')
     load_parser.add_argument('file', type=argparse.FileType(),
                              help='file to load the hyperparameter configurations and '

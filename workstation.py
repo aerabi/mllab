@@ -11,6 +11,8 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
 
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import pyplot as plt
 
 import openml

@@ -254,8 +254,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    # default_task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
-    default_task_ids = eval(open('jobs.txt', 'r').read())
+    default_task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
     cmd_parser = argparse.ArgumentParser('workstation')
     subparsers = cmd_parser.add_subparsers(dest='option')
     calc_parser = subparsers.add_parser('calc')

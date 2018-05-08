@@ -24,6 +24,7 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
         'estimator__min_samples_split',
     ]
     result = []
+    task_ids = list(map(str, eval(open(os.path.join(w_dir, 'jobs.txt'), 'r').read())))
 
     if not os.path.exists('cuts'):
         os.makedirs('cuts')
@@ -50,6 +51,7 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
                     'calc', '--raw', '-i', str(iter),
                     '-C', '|'.join(features),
                     kde_name, '"lambda *xs : xs[0] > 0.5, x[1], int(round(x[2])), int(round(x[3]))"',
+                    '-t'] + task_ids + [
                     '--seed', str(3 ** seed),
                     '--save', os.path.join(w_dir, 'cuts/cut%02d-%d.json' % (i, seed))
                 ]

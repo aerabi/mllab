@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import matplotlib.pyplot as plt
 import numpy as np
 import subprocess
 
@@ -79,6 +78,7 @@ if __name__ == '__main__':
     if args.option == 'calc':
         json.dump(main(iter=args.iter, cutoffs=args.cutoff, seeds=args.seed), open(args.save, 'w'))
     else:
+        import matplotlib.pyplot as plt
         colors = {'accuracy': 'blue', 'f1': 'red', 'precision': 'purple', 'recall': 'green'}
         aggregate_function = eval(args.function)
         legend = []

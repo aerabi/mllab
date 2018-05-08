@@ -30,10 +30,18 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
 
     for i in cutoffs:
         kde_name = os.path.join(w_dir, 'cuts/cut%02d.kde' % i)
-        subprocess.run([os.path.join(python_path, 'python'), os.path.join(w_dir, 'workstation.py'),
-                        'load', os.path.join(w_dir, input_file),
-                        '-H'] + features + [
-                        '-s', '%.2f' % i, '-S', kde_name])
+        arguments = [
+            os.path.join(python_path, 'python'), os.path.join(w_dir, 'workstation.py'),
+            'load', os.path.join(w_dir, input_file),
+            '-H'] + features + [
+            '-s', '%.2f' % i, '-S', kde_name,
+        ]
+        print(' '.join(arguments))
+        r = subprocess.run(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if len(r.stdout) > 2:
+            print(r.stdout)
+        if len(r.stderr) > 2:
+            print('ERROR', r.stderr)
         for seed in seeds:
             output_file_name = os.path.join(w_dir, 'cuts/cut%02d-%d.o' % (i, seed))
             with open(output_file_name, 'w') as output_file:
@@ -45,11 +53,10 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
                     '--seed', str(3 ** seed),
                     '--save', os.path.join(w_dir, 'cuts/cut%02d-%d.json' % (i, seed))
                 ]
-                logging.debug(' '.join(arguments))
+                print(' '.join(arguments))
                 r = subprocess.run(arguments, stdout=output_file, stderr=subprocess.PIPE)
             if len(r.stderr) > 2:
-                logging.error(r.stderr)
-                print(r.stderr)
+                print('ERROR', r.stderr)
             with open(output_file_name, 'r') as f:
                 o = f.read()
             score = o.split(' ')[-1].strip()

@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import numpy as np
+import os
 import subprocess
 
 
@@ -21,6 +22,10 @@ def main(iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5)
         'estimator__min_samples_split',
     ]
     result = []
+
+    if not os.path.exists('cuts'):
+        os.makedirs('cuts')
+
     for i in cutoffs:
         kde_name = 'cuts/cut%02d.kde' % i
         subprocess.run(['python', 'workstation.py', 'load', input_file,

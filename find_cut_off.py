@@ -6,9 +6,11 @@ import os
 import subprocess
 
 
-def main(iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5), seeds=[1]):
+def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5), seeds=[1]):
     """
     create KDEs with different cutoffs, test them and return the result
+    :param python_path: absolute path of python exec
+    :param w_dir: absolute path of working directory
     :param iter: number of iterations on each dataset, in testing phase
     :param input_file: the name of the json input file
     :param cutoffs: iterable of cutoffs, in integer
@@ -27,19 +29,21 @@ def main(iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5)
         os.makedirs('cuts')
 
     for i in cutoffs:
-        kde_name = 'cuts/cut%02d.kde' % i
-        subprocess.run(['python', 'workstation.py', 'load', input_file,
+        kde_name = os.path.join(w_dir, 'cuts/cut%02d.kde' % i)
+        subprocess.run([os.path.join(python_path, 'python'), os.path.join(w_dir, 'workstation.py'),
+                        'load', os.path.join(w_dir, input_file),
                         '-H'] + features + [
                         '-s', '%.2f' % i, '-S', kde_name])
         for seed in seeds:
-            output_file_name = 'cuts/cut%02d-%d.o' % (i, seed)
+            output_file_name = os.path.join(w_dir, 'cuts/cut%02d-%d.o' % (i, seed))
             with open(output_file_name, 'w') as output_file:
                 arguments = [
-                    'python', 'workstation.py', 'calc', '--raw', '-i', str(iter),
+                    os.path.join(python_path, 'python'), os.path.join(w_dir, 'workstation.py'),
+                    'calc', '--raw', '-i', str(iter),
                     '-C', '|'.join(features),
                     kde_name, '"lambda *xs : xs[0] > 0.5, x[1], int(round(x[2])), int(round(x[3]))"',
                     '--seed', str(3 ** seed),
-                    '--save', 'cuts/cut%02d-%d.json' % (i, seed)
+                    '--save', os.path.join(w_dir, 'cuts/cut%02d-%d.json' % (i, seed))
                 ]
                 logging.debug(' '.join(arguments))
                 r = subprocess.run(arguments, stdout=output_file, stderr=subprocess.PIPE)
@@ -76,13 +80,17 @@ if __name__ == '__main__':
     calc_parser.add_argument('-s', '--seed', default=[1], type=int, nargs='+', help='random seeds')
     calc_parser.add_argument('-c', '--cutoff', default=[5], type=int, nargs='+', help='cutoffs')
     calc_parser.add_argument('-S', '--save', default='cutoff.json', type=str, help='output json file')
+    calc_parser.add_argument('-p', '--python-path', default='/usr/bin', type=str, help='absolute path of python exec')
+    calc_parser.add_argument('-w', '--working-dir', default='.', type=str, help='path of working directory')
     load_parser = subparsers.add_parser('load')
     load_parser.add_argument('-m', '--metric', default=['accuracy'], nargs='+',
                              choices=['accuracy', 'f1', 'recall', 'precision'])
     load_parser.add_argument('-f', '--function', default='np.mean', help='aggregator for each dataset, default=np.mean')
     args = cmd_parser.parse_args()
     if args.option == 'calc':
-        json.dump(main(iter=args.iter, cutoffs=args.cutoff, seeds=args.seed), open(args.save, 'w'))
+        results = main(python_path=args.python_path, w_dir=args.working_dir,
+                       iter=args.iter, cutoffs=args.cutoff, seeds=args.seed)
+        json.dump(results, open(args.save, 'w'))
     else:
         import matplotlib.pyplot as plt
         colors = {'accuracy': 'blue', 'f1': 'red', 'precision': 'purple', 'recall': 'green'}

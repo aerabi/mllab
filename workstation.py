@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import json
 import pickle
+import random
 import traceback
 
 import sklearn
@@ -70,7 +71,7 @@ class AlgorithmWorkstation:
             return metric(self.y_test, self.y_pred, average='micro')
 
 
-def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None, raw=False):
+def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None, raw=False, seed=1):
     scores, scores_optimized = list(), list()
     all_scores, all_additionals = list(), dict()
     steps = [('imputer', Imputer()),
@@ -127,6 +128,8 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
 
                 scores = []
                 additionals = []
+                np.random.seed(seed)
+                random.seed(2 * seed)
                 for i in range(iterations):
                     hyperparameters = raw.sample()
                     negative_score, additional = function_to_minimize(**hyperparameters)
@@ -208,7 +211,7 @@ def main(args):
                 with open(options[1], 'rb') as input_file:
                     configuration_space[options[0]] = (pickle.load(input_file), eval(options[-1]))
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations, args.save, args.random_forest,
-                                                    configuration_space, args.raw)
+                                                    configuration_space, args.raw, args.seed)
         if len(scores_optimized) > 0:
             print('mean scores:', sum(scores_optimized) / len(scores_optimized))
         if args.plot:
@@ -249,8 +252,10 @@ def main(args):
                 with open(args.save_sample, 'wb') as output:
                     pickle.dump(kde, output, pickle.HIGHEST_PROTOCOL)
 
+
 if __name__ == '__main__':
-    default_task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
+    # default_task_ids = [125921, 125920, 14968, 9980, 9971, 9950, 9946, 3918, 3567, 53]
+    default_task_ids = eval(open('jobs.txt', 'r').read())
     cmd_parser = argparse.ArgumentParser('workstation')
     subparsers = cmd_parser.add_subparsers(dest='option')
     calc_parser = subparsers.add_parser('calc')
@@ -276,6 +281,7 @@ if __name__ == '__main__':
                              help='load multivariate statistical distribution for multiple hyperparameters '
                                   'input as a single string, delimited by horizontal line "|"',
                              metavar=('HYPERPARAMETERS', 'FILE', 'OUTPUT_FILTER'))
+    calc_parser.add_argument('--seed', type=int, help='random seed')
     load_parser = subparsers.add_parser('load')
     load_parser.add_argument('file', type=argparse.FileType(),
                              help='file to load the hyperparameter configurations and '

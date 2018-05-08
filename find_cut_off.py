@@ -45,6 +45,7 @@ def main(iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5)
                 r = subprocess.run(arguments, stdout=output_file, stderr=subprocess.PIPE)
             if len(r.stderr) > 2:
                 logging.error(r.stderr)
+                print(r.stderr)
             with open(output_file_name, 'r') as f:
                 o = f.read()
             score = o.split(' ')[-1].strip()

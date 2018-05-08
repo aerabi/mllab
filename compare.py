@@ -35,5 +35,6 @@ if __name__ == '__main__':
     parser.add_argument('base', help='baseline JSON file, to compare the results to')
     parser.add_argument('result', help='results JSON file')
     parser.add_argument('-f', '--function', default='max', help='aggregator for each dataset, default = max')
+    parser.add_argument('-m', '--metric', default='accuracy', choices=['accuracy', 'f1', 'recall', 'precision'])
     parsed = parser.parse_args()
-    compare(parsed.base, parsed.result, function=eval(parsed.function))
+    compare(parsed.base, parsed.result, score=parsed.metric, function=eval(parsed.function))

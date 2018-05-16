@@ -35,7 +35,7 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
             os.path.join(python_path, 'python'), os.path.join(w_dir, 'workstation.py'),
             'load', os.path.join(w_dir, input_file),
             '-H'] + features + [
-            '-s', '%.2f' % i, '-S', kde_name,
+            '-s', '%.2f' % (i / 100.0), '-S', kde_name,
         ]
         print(' '.join(arguments))
         r = subprocess.run(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -52,7 +52,7 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
                     '-C', '|'.join(features),
                     kde_name, '"lambda *xs : xs[0] > 0.5, x[1], int(round(x[2])), int(round(x[3]))"',
                     '-t'] + task_ids + [
-                    '--seed', str(3 ** seed),
+                    '--seed', str(seed),
                     '--save', os.path.join(w_dir, 'cuts/cut%02d-%d.json' % (i, seed))
                 ]
                 print(' '.join(arguments))
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     calc_parser = subparsers.add_parser('calc')
     calc_parser.add_argument('-i', '--iter', default=5, type=int, help='number of iterations on each of the datasets')
     calc_parser.add_argument('-s', '--seed', default=[1], type=int, nargs='+', help='random seeds')
-    calc_parser.add_argument('-c', '--cutoff', default=[5], type=int, nargs='+', help='cutoffs')
+    calc_parser.add_argument('-c', '--cutoff', default=[5], type=int, nargs='+', help='cutoffs (in percent)')
     calc_parser.add_argument('-S', '--save', default='cutoff.json', type=str, help='output json file')
     calc_parser.add_argument('-p', '--python-path', default='/usr/bin', type=str, help='absolute path of python exec')
     calc_parser.add_argument('-w', '--working-dir', default='.', type=str, help='path of working directory')

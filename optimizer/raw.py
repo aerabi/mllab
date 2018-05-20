@@ -40,6 +40,18 @@ class Raw:
                     print('ERROR', e)
                 for j in range(len(keys_keys)):
                     dick[keys_keys[j]] = vals_vals[j]
+            elif isinstance(self.distributions[i], tuple):
+                kde = self.distributions[i][0]
+                func = self.distributions[i][1]
+                if isinstance(func, str):
+                    print('FUNC', func)
+                    func = eval(func)
+                sample = kde.resample(size=1)
+                try:
+                    vals_vals = func(*sample)
+                except ValueError as e:
+                    print('ERROR', e)
+                dick[self.keys[i]] = vals_vals
             else:
                 dick[self.keys[i]] = self.distributions[i].rvs()
         return dick

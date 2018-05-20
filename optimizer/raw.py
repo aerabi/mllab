@@ -26,9 +26,20 @@ class Raw:
         for i in range(len(self.keys)):
             if isinstance(self.keys[i], list):
                 keys_keys = self.keys[i]
-                vals_vals = self.distributions[i][1](self.distributions[i][0].resample(size=1))
+                kde = self.distributions[i][0]
+                func = self.distributions[i][1]
+                if isinstance(func, str):
+                    print('FUNC', func)
+                    func = eval(func)
+                sample = kde.resample(size=1)
+                if 'tolist' in dir(sample):
+                    sample = [i[0] for i in sample.tolist()]
+                try:
+                    vals_vals = func(*sample)
+                except ValueError as e:
+                    print('ERROR', e)
                 for j in range(len(keys_keys)):
-                    dick[keys_keys[j]] = vals_vals[j][0]
+                    dick[keys_keys[j]] = vals_vals[j]
             else:
                 dick[self.keys[i]] = self.distributions[i].rvs()
         return dick

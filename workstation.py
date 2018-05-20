@@ -207,9 +207,12 @@ def main(args):
                     kdew = GaussianKDEWrapper(pickle.load(input_file), float(options[2]),
                                               float(options[3]), eval(options[4]))
                     configuration_space[options[0]] = kdew
-            for options in args.configuration_multi:
-                with open(options[1], 'rb') as input_file:
+        for options in args.configuration_multi:
+            with open(options[1], 'rb') as input_file:
+                try:
                     configuration_space[options[0]] = (pickle.load(input_file), eval(options[-1]))
+                except Exception:
+                    configuration_space[options[0]] = (pickle.load(input_file, encoding='latin1'), eval(options[-1]))
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations, args.save, args.random_forest,
                                                     configuration_space, args.raw, args.seed)
         if len(scores_optimized) > 0:

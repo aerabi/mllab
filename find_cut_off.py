@@ -6,7 +6,8 @@ import os
 import subprocess
 
 
-def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5), seeds=[1]):
+def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cutoffs=range(5, 100, 5), seeds=[1],
+         task_ids=None):
     """
     create KDEs with different cutoffs, test them and return the result
     :param python_path: absolute path of python exec
@@ -24,7 +25,8 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
         'estimator__min_samples_split',
     ]
     result = []
-    task_ids = list(map(str, eval(open(os.path.join(w_dir, 'jobs.txt'), 'r').read())))
+    if task_ids is None:
+        task_ids = list(map(str, eval(open(os.path.join(w_dir, 'jobs.txt'), 'r').read())))
 
     if not os.path.exists('cuts'):
         os.makedirs('cuts')
@@ -50,7 +52,7 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
                     os.path.join(python_path, 'python'), os.path.join(w_dir, 'workstation.py'),
                     'calc', '--raw', '-i', str(iter),
                     '-C', '|'.join(features),
-                    kde_name, '"lambda *xs : xs[0] > 0.5, x[1], int(round(x[2])), int(round(x[3]))"',
+                    kde_name, '"lambda *x : (x[0] > 0.5, x[1], int(round(x[2])), int(round(x[3])))"',
                     '-t'] + task_ids + [
                     '--seed', str(seed),
                     '--save', os.path.join(w_dir, 'cuts/cut%02d-%d.json' % (i, seed))
@@ -58,11 +60,14 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
                 print(' '.join(arguments))
                 r = subprocess.run(arguments, stdout=output_file, stderr=subprocess.PIPE)
             if len(r.stderr) > 2:
-                print('ERROR', r.stderr)
+                print('ERROR', '\033[93m', r.stderr.decode('utf-8'), '\033[0m')
             with open(output_file_name, 'r') as f:
                 o = f.read()
             score = o.split(' ')[-1].strip()
-            result.append([i, float(score)])
+            try:
+                result.append([i, float(score)])
+            except ValueError:
+                print('ERROR', '\033[93m', o, '\033[0m')
             print(i, score)
     return result
 
@@ -87,6 +92,7 @@ if __name__ == '__main__':
     calc_parser = subparsers.add_parser('calc')
     calc_parser.add_argument('-i', '--iter', default=5, type=int, help='number of iterations on each of the datasets')
     calc_parser.add_argument('-s', '--seed', default=[1], type=int, nargs='+', help='random seeds')
+    calc_parser.add_argument('-t', '--tasks', default=None, type=str, nargs='+', help='task IDs')
     calc_parser.add_argument('-c', '--cutoff', default=[5], type=int, nargs='+', help='cutoffs (in percent)')
     calc_parser.add_argument('-S', '--save', default='cutoff.json', type=str, help='output json file')
     calc_parser.add_argument('-p', '--python-path', default='/usr/bin', type=str, help='absolute path of python exec')
@@ -98,7 +104,7 @@ if __name__ == '__main__':
     args = cmd_parser.parse_args()
     if args.option == 'calc':
         results = main(python_path=args.python_path, w_dir=args.working_dir,
-                       iter=args.iter, cutoffs=args.cutoff, seeds=args.seed)
+                       iter=args.iter, cutoffs=args.cutoff, seeds=args.seed, task_ids=args.tasks)
         json.dump(results, open(args.save, 'w'))
     else:
         import matplotlib.pyplot as plt

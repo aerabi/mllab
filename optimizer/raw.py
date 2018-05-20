@@ -46,9 +46,9 @@ class Raw:
                 if isinstance(func, str):
                     print('FUNC', func)
                     func = eval(func)
-                sample = kde.resample(size=1)
+                sample = kde.resample(size=1)[0][0]
                 try:
-                    vals_vals = func(*sample)
+                    vals_vals = func(sample)
                 except ValueError as e:
                     print('ERROR', e)
                 dick[self.keys[i]] = vals_vals

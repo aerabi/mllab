@@ -25,7 +25,7 @@ def main(python_path, w_dir, iter=5, input_file='cluster/rawAllx1000.json', cuto
         'estimator__min_samples_split',
     ]
     lambdas = [
-        'x[0] > 0.5', 'x[1]', 'int(round(x[2]))', 'int(round(x[3]))'
+        'bool(x > 0.5)', 'x', 'int(round(x))', 'int(round(x))'
     ]
     result = []
     if task_ids is None:

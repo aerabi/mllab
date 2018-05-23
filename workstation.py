@@ -71,7 +71,8 @@ class AlgorithmWorkstation:
             return metric(self.y_test, self.y_pred, average='micro')
 
 
-def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None, raw=False, seed=1):
+def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None, raw=False, seed=1,
+         default_parameters=False):
     scores, scores_optimized = list(), list()
     all_scores, all_additionals = list(), dict()
     steps = [('imputer', Imputer()),
@@ -86,6 +87,9 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
         for metric in score_metrics:
             additional_data['scores'][metric.__name__] = trained.get_score(metric)
         return 1 - trained.get_score(), additional_data
+
+    if task_ids[0] == -1:
+        task_ids = eval(open('jobs.txt', 'r').read())
 
     for task_id in task_ids:
         try:
@@ -110,6 +114,12 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
                         .random_search_optimize(configuration_space)
                         .get_score()
                 )
+            elif default_parameters:
+                negative_score, additional = function_to_minimize()
+                all_scores.append([1 - negative_score])
+                all_additionals[task_id] = [additional]
+                print('score:', 1 - negative_score)
+                scores_optimized.append(1 - negative_score)
             elif raw:
                 # using random sampling
                 print('using WWE Raw', end=' ')
@@ -214,7 +224,8 @@ def main(args):
                 except Exception:
                     configuration_space[options[0]] = (pickle.load(input_file, encoding='latin1'), eval(options[-1]))
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations, args.save, args.random_forest,
-                                                    configuration_space, args.raw, args.seed)
+                                                    configuration_space, args.raw, args.seed,
+                                                    default_parameters=args.no_optimization)
         if len(scores_optimized) > 0:
             print('mean scores:', sum(scores_optimized) / len(scores_optimized))
         if args.plot:
@@ -263,13 +274,15 @@ if __name__ == '__main__':
     calc_parser = subparsers.add_parser('calc')
     calc_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=default_task_ids,
                              help='OpenML.org task IDs to do the experiment on, '
-                                  'default is a set 10 small datasets')
+                                  'default is a set 10 small datasets, '
+                                  'set the first value to -1 to load 100 ids from jobs.txt')
     calc_parser.add_argument('-s', '--save',
                              help='file to save the huperparameter configuration spaces '
                                   'together with evaluation scores for each configuration')
     calc_parser.add_argument('--random-forest', action='store_true',
                              help='whether to use random forest for hyperparameter '
                                   'optimization; save unavailable for this option')
+    calc_parser.add_argument('-n', '--no-optimization', action='store_true', help='use default configuration')
     calc_parser.add_argument('-r', '--raw', action='store_true',
                              help='simple random sampling with save support')
     calc_parser.add_argument('-i', '--iterations', type=int, default=100,
@@ -279,7 +292,7 @@ if __name__ == '__main__':
                              help='load statistical distribution for a specific hyperparameter '
                                   'from file (random forest)',
                              metavar=('HYPERPARAMETER', 'FILE', 'LOWER_BOUND', 'UPPER_BOUND', 'ROUND'))
-    calc_parser.add_argument('-C', '--configuration-multi', action='append', nargs=3,
+    calc_parser.add_argument('-C', '--configuration-multi', action='append', nargs=3, default=[],
                              help='load multivariate statistical distribution for multiple hyperparameters '
                                   'input as a single string, delimited by horizontal line "|"',
                              metavar=('HYPERPARAMETERS', 'FILE', 'OUTPUT_FILTER'))

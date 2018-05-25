@@ -26,9 +26,16 @@ if __name__ == '__main__':
     X, means = load_data(interval=reihe, func=func)
     Y, moans = load_data(name_template='cluster_cuts/cutoff1d%02d.json', interval=reihe, func=func)
 
+    base = 0.8138147527879279
+    unif = 0.8091619789936539
+    xx = list(range(1, len(reihe) + 1))
+
     plt.boxplot(X)
-    plt.xticks(list(range(1, len(reihe) + 1)), map(str, list(reihe)))
-    plt.plot(list(range(1, len(reihe) + 1)), means)
-    plt.plot(list(range(1, len(reihe) + 1)), moans, color='red')
+    plt.xticks(xx, map(str, list(reihe)))
+    plt.plot(xx, means)
+    plt.fill_between(xx, base, means, alpha=0.5)
+    plt.plot(xx, moans, color='red')
+    plt.plot(xx, [base] * len(reihe), color='purple')
+    plt.plot(xx, [unif] * len(reihe), color='green')
     plt.grid()
     plt.show()

@@ -11,6 +11,7 @@ from sklearn.preprocessing import Imputer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 
 import matplotlib
 matplotlib.use('agg')
@@ -52,8 +53,8 @@ class AlgorithmWorkstation:
 
         return self
 
-    def random_search_optimize(self, configuration_space):
-        optimizer = RandomizedSearchCV(self._model_, configuration_space, n_iter=100)
+    def random_search_optimize(self, configuration_space, n_iter=100):
+        optimizer = RandomizedSearchCV(self._model_, configuration_space, n_iter=n_iter)
         optimizer.fit(self.X_train, self.y_train)
         self.y_pred = optimizer.predict(self.X_test)
         return self
@@ -71,12 +72,13 @@ class AlgorithmWorkstation:
             return metric(self.y_test, self.y_pred, average='micro')
 
 
-def calc(task_ids, iterations, save=False, random_forest=False, input_configuration_space=None, raw=False, seed=1,
-         default_parameters=False):
+def calc(task_ids, iterations, save=False, random_forest=False, support_vector_machine=False,
+         input_configuration_space=None, raw=False, seed=1, default_parameters=False):
     scores, scores_optimized = list(), list()
     all_scores, all_additionals = list(), dict()
+    estimator = RandomForestClassifier() if random_forest else SVC()
     steps = [('imputer', Imputer()),
-             ('estimator', RandomForestClassifier())]
+             ('estimator', estimator)]
     classifier = sklearn.pipeline.Pipeline(steps=steps)
 
     def function_to_minimize(**params):
@@ -89,20 +91,29 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
         return 1 - trained.get_score(), additional_data
 
     if task_ids[0] == -1:
-        task_ids = eval(open('jobs.txt', 'r').read())
+        task_ids = json.load(open('openml99.json', 'r'))
 
     for task_id in task_ids:
         try:
             print('Task %d' % task_id)
-            if random_forest:
-                # using random forest classifier
-                configuration_space = {
-                    'imputer__strategy': ['mean', 'median', 'most_frequent'],
-                    'estimator__bootstrap': [True, False],
-                    'estimator__max_features': scipy.stats.uniform(loc=0.1, scale=0.8),
-                    'estimator__min_samples_leaf': list(range(1, 21)),
-                    'estimator__min_samples_split': list(range(2, 21)),
-                }
+            if False and (random_forest or support_vector_machine):
+                if random_forest:
+                    # using random forest classifier
+                    configuration_space = {
+                        'imputer__strategy': ['mean', 'median', 'most_frequent'],
+                        'estimator__bootstrap': [True, False],
+                        'estimator__max_features': scipy.stats.uniform(loc=0.1, scale=0.8),
+                        'estimator__min_samples_leaf': list(range(1, 21)),
+                        'estimator__min_samples_split': list(range(2, 21)),
+                    }
+                else:
+                    # using SVM classifier
+                    configuration_space = {
+                        'imputer__strategy': ['mean', 'median', 'most_frequent'],
+                        'estimator__C': [2 ** p for p in range(-5, 15, 5)],
+                        'estimator__coef0': [-1, 1],
+                        'estimator__gamma': [2 ** p for p in range(-15, 3, 3)],
+                    }
 
                 for key, val in input_configuration_space.items():
                     configuration_space[key] = val
@@ -111,7 +122,7 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
                 scores_optimized.append(
                     AlgorithmWorkstation(classifier)
                         .load_openml_task(task_id)
-                        .random_search_optimize(configuration_space)
+                        .random_search_optimize(configuration_space, n_iter=iterations)
                         .get_score()
                 )
             elif default_parameters:
@@ -123,12 +134,21 @@ def calc(task_ids, iterations, save=False, random_forest=False, input_configurat
             elif raw:
                 # using random sampling
                 print('using WWE Raw', end=' ')
-                raw = Raw()
-                raw.add('imputer__strategy', CategoricalDistribution(['mean', 'median', 'most_frequent']))
-                raw.add('estimator__bootstrap', CategoricalDistribution([True, False]))
-                raw.add('estimator__max_features', scipy.stats.uniform(loc=0.1, scale=0.8))
-                raw.add('estimator__min_samples_leaf', CategoricalDistribution(list(range(1, 21))))
-                raw.add('estimator__min_samples_split', CategoricalDistribution(list(range(2, 21))))
+                if random_forest:
+                    # using random forest classifier
+                    raw = Raw()
+                    raw.add('imputer__strategy', CategoricalDistribution(['mean', 'median', 'most_frequent']))
+                    raw.add('estimator__bootstrap', CategoricalDistribution([True, False]))
+                    raw.add('estimator__max_features', scipy.stats.uniform(loc=0.1, scale=0.8))
+                    raw.add('estimator__min_samples_leaf', CategoricalDistribution(list(range(1, 21))))
+                    raw.add('estimator__min_samples_split', CategoricalDistribution(list(range(2, 21))))
+                else:
+                    # using SVM classifier
+                    raw = Raw()
+                    raw.add('imputer__strategy', CategoricalDistribution(['mean', 'median', 'most_frequent']))
+                    raw.add('estimator__C', CategoricalDistribution([2 ** p for p in range(-5, 15, 5)]))
+                    raw.add('estimator__coef0', CategoricalDistribution([-1, 1]))
+                    raw.add('estimator__gamma', CategoricalDistribution([2 ** p for p in range(-15, 3, 3)]))
 
                 for key, val in input_configuration_space.items():
                     if '|' in key:
@@ -224,8 +244,8 @@ def main(args):
                 except Exception:
                     configuration_space[options[0]] = (pickle.load(input_file, encoding='latin1'), eval(options[-1]))
         scores, scores_optimized, all_scores = calc(args.task_ids, args.iterations, args.save, args.random_forest,
-                                                    configuration_space, args.raw, args.seed,
-                                                    default_parameters=args.no_optimization)
+                                                    args.support_vector_machine, configuration_space, args.raw,
+                                                    args.seed, default_parameters=args.no_optimization)
         if len(scores_optimized) > 0:
             print('mean scores:', sum(scores_optimized) / len(scores_optimized))
         if args.plot:
@@ -275,12 +295,15 @@ if __name__ == '__main__':
     calc_parser.add_argument('-t', '--task-ids', nargs='+', type=int, default=default_task_ids,
                              help='OpenML.org task IDs to do the experiment on, '
                                   'default is a set 10 small datasets, '
-                                  'set the first value to -1 to load 100 ids from jobs.txt')
+                                  'set the first value to -1 to load OpenML-99 from openml99.json')
     calc_parser.add_argument('-s', '--save',
-                             help='file to save the huperparameter configuration spaces '
+                             help='file to save the hyperparameter configuration spaces '
                                   'together with evaluation scores for each configuration')
     calc_parser.add_argument('--random-forest', action='store_true',
                              help='whether to use random forest for hyperparameter '
+                                  'optimization; save unavailable for this option')
+    calc_parser.add_argument('--support-vector-machine', action='store_true',
+                             help='whether to use SVM for hyperparameter '
                                   'optimization; save unavailable for this option')
     calc_parser.add_argument('-n', '--no-optimization', action='store_true', help='use default configuration')
     calc_parser.add_argument('-r', '--raw', action='store_true',

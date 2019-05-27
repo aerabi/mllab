@@ -1,6 +1,6 @@
 # MLlab
 
-Hyperparameter Optimization Project using Python, Sckikit Learn, and SMAC.
+Hyperparameter Optimization Project using Python, Scikit Learn, and SMAC.
 
 ## Usage
 

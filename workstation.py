@@ -146,9 +146,9 @@ def calc(task_ids, iterations, save=False, random_forest=False, support_vector_m
                     # using SVM classifier
                     raw = Raw()
                     raw.add('imputer__strategy', CategoricalDistribution(['mean', 'median', 'most_frequent']))
-                    raw.add('estimator__C', CategoricalDistribution([2 ** p for p in range(-5, 15, 5)]))
+                    raw.add('estimator__C', CategoricalDistribution([10 ** p for p in range(-5, 15)]))
                     raw.add('estimator__coef0', CategoricalDistribution([-1, 1]))
-                    raw.add('estimator__gamma', CategoricalDistribution([2 ** p for p in range(-15, 3, 3)]))
+                    raw.add('estimator__gamma', CategoricalDistribution([10 ** p for p in range(-15, 5)]))
 
                 for key, val in input_configuration_space.items():
                     if '|' in key:

@@ -12,11 +12,11 @@ def command(task_id, iterations=1000):
 
 
 if __name__ == '__main__':
-    # load OpenML-99
-    with open('openml99.json') as openml99_file:
-        openml99 = json.load(openml99_file)
+    # load OpenML-30
+    with open('openml30.json') as openml30_file:
+        openml30 = json.load(openml30_file)
 
     cwd = os.getcwd()
-    processes = [Popen(command(task_id), cwd=cwd) for task_id in openml99]
+    processes = [Popen(command(task_id), cwd=cwd) for task_id in openml30]
     for process in processes:
         process.wait()

@@ -22,10 +22,11 @@ import numpy as np
 import scipy
 from scipy.stats import gaussian_kde
 
+from tqdm import tqdm
+
 from optimizer import SmackDown
 from optimizer.raw import Raw
 from wrappers import GaussianKDEWrapper, CategoricalDistribution
-
 
 class AlgorithmWorkstation:
     def __init__(self, sklearn_model):
@@ -146,7 +147,7 @@ def calc(task_ids, iterations, save=False, random_forest=False, support_vector_m
                     # using SVM classifier
                     raw = Raw()
                     raw.add('imputer__strategy', CategoricalDistribution(['mean', 'median', 'most_frequent']))
-                    raw.add('estimator__C', CategoricalDistribution([10 ** p for p in range(-5, 15)]))
+                    raw.add('estimator__C', CategoricalDistribution([10 ** p for p in range(-5, 10)]))
                     raw.add('estimator__coef0', CategoricalDistribution([-1, 1]))
                     raw.add('estimator__gamma', CategoricalDistribution([10 ** p for p in range(-15, 5)]))
 
@@ -160,7 +161,7 @@ def calc(task_ids, iterations, save=False, random_forest=False, support_vector_m
                 additionals = []
                 np.random.seed(seed)
                 random.seed(2 * seed)
-                for i in range(iterations):
+                for i in tqdm(range(iterations), desc='Task %d' % task_id):
                     hyperparameters = raw.sample()
                     negative_score, additional = function_to_minimize(**hyperparameters)
                     scores.append(1 - negative_score)
